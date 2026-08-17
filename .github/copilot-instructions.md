@@ -18,29 +18,26 @@ This repository contains a SourceMod plugin that serves as a bridge between the 
 - **ExtendedDiscord**: Optional plugin for enhanced Discord features
 - **SourceMod**: Version 1.11.0-git6934 or newer
 
-### Build System: SourceKnight
-This project uses **SourceKnight v0.2** for dependency management and building, NOT the standard SourceMod compiler directly.
+### Build System: Native GitHub Actions
+This project builds using `rumblefrog/setup-sp` directly in GitHub Actions, NOT SourceKnight.
 
-**Build Configuration:** `sourceknight.yaml`
-- Automatically downloads and manages dependencies
-- Handles include path resolution
-- Compiles to `/addons/sourcemod/plugins`
+**Build Configuration:** `.github/workflows/ci.yml`
+- Clones git dependencies (KnockbackRestrict, DiscordWebhookAPI, Extended-Discord) and copies their includes
+- Compiles with `spcomp`
+- Compiles to `addons/sourcemod/plugins`
 - Target: `KnockbackRestrict_Discord`
 
 **Build Commands:**
 ```bash
-# Standard build (requires SourceKnight)
-sourceknight build
-
-# Local development setup
-sourceknight deps  # Download dependencies first
+# Compile locally (requires spcomp and includes in place)
+spcomp -i include -o ../plugins/KnockbackRestrict_Discord.smx KnockbackRestrict_Discord.sp
 ```
 
 ### CI/CD Pipeline
 - **GitHub Actions**: Automated building, testing, and releases
 - **Artifacts**: Built plugins packaged as tar.gz
 - **Releases**: Automatic tagging and release creation
-- **Runner**: Ubuntu 24.04 with SourceKnight action
+- **Runner**: ubuntu-latest with rumblefrog/setup-sp
 
 ## Code Architecture & Patterns
 
@@ -109,7 +106,7 @@ addons/sourcemod/scripting/
 - Understand that this plugin REQUIRES other plugins to function
 - KnockbackRestrict events are the primary trigger
 - ExtendedDiscord integration is optional but provides enhancements
-- Any changes to includes require dependency updates in `sourceknight.yaml`
+- Any changes to includes require dependency updates in `.github/workflows/ci.yml`
 
 #### 2. Discord Formatting Changes
 - Test webhook formatting thoroughly
@@ -133,13 +130,8 @@ addons/sourcemod/scripting/
 
 #### 1. Build Testing
 ```bash
-# Verify dependencies resolve
-sourceknight deps
-
-# Test compilation
-sourceknight build
-
-# Check for warnings/errors
+# Verify dependencies resolve and compilation succeeds via the CI workflow
+# (see .github/workflows/ci.yml for the exact steps)
 ```
 
 #### 2. Runtime Testing Requirements
@@ -200,8 +192,7 @@ public void KR_OnNewEvent(int client, /* other params */)
 ## Troubleshooting Common Issues
 
 ### Build Issues
-- **Missing includes**: Check `sourceknight.yaml` dependencies
-- **SourceKnight not found**: Ensure build environment has SourceKnight installed
+- **Missing includes**: Check dependency clone/copy steps in `.github/workflows/ci.yml`
 - **Version conflicts**: Verify SourceMod version compatibility
 
 ### Runtime Issues
@@ -217,8 +208,7 @@ public void KR_OnNewEvent(int client, /* other params */)
 
 ## Key Files to Understand
 - `KnockbackRestrict_Discord.sp`: Main plugin logic
-- `sourceknight.yaml`: Build configuration and dependencies
-- `.github/workflows/ci.yml`: CI/CD pipeline
+- `.github/workflows/ci.yml`: Build configuration, dependencies, and CI/CD pipeline
 - `.gitignore`: Build artifact exclusions
 
 This plugin is specifically designed as an integration component, not a standalone feature. Always consider the broader ecosystem when making changes.

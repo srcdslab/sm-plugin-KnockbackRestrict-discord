@@ -25,7 +25,7 @@ public Plugin myinfo =
 {
 	name 		= PLUGIN_NAME,
 	author 		= ".Rushaway, Dolly, koen",
-	version 	= "1.2",
+	version 	= "1.2.1",
 	description = "Send KbRestrict Ban/Unban notifications to discord",
 	url 		= "https://github.com/srcdslab/sm-plugin-KnockbackRestrict-discord"
 };

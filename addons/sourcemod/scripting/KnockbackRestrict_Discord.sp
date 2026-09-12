@@ -9,15 +9,13 @@
 #define REQUIRE_PLUGIN
 
 #define PLUGIN_NAME "KnockbackRestrict_Discord"
-#define WEBHOOK_URL_MAX_SIZE			1000
-#define WEBHOOK_THREAD_NAME_MAX_SIZE	100
 
 #define KBAN 	1
 #define KUNBAN 	2
 
 ConVar g_cvEnable, g_cvWebhook, g_cvWebhookRetry, g_cvAvatar, g_cvUsername;
 ConVar g_cvRedirectURL = null, g_cvWebSite = null;
-ConVar g_cvChannelType, g_cvThreadName, g_cvThreadID;
+ConVar g_cvThreadName, g_cvThreadID;
 
 bool g_Plugin_ExtDiscord = false;
 
@@ -25,7 +23,7 @@ public Plugin myinfo =
 {
 	name 		= PLUGIN_NAME,
 	author 		= ".Rushaway, Dolly, koen",
-	version 	= "1.2",
+	version 	= "1.2.1",
 	description = "Send KbRestrict Ban/Unban notifications to discord",
 	url 		= "https://github.com/srcdslab/sm-plugin-KnockbackRestrict-discord"
 };
@@ -37,10 +35,10 @@ public void OnPluginStart()
 	g_cvWebhook = CreateConVar("kban_discord_webhook", "", "The webhook URL of your Discord channel.", FCVAR_PROTECTED);
 	g_cvWebhookRetry = CreateConVar("kban_discord_webhook_retry", "3", "Number of retries if webhook fails.", FCVAR_PROTECTED);
 	g_cvUsername = CreateConVar("kban_discord_discord_username", "Knockback Restrict Discord", "Discord username.");
+	g_cvAvatar = CreateConVar("kban_discord_avatar", "https://avatars.githubusercontent.com/u/110772618?s=200&v=4", "URL to Avatar image.");
 	g_cvWebSite	= CreateConVar("kban_website", "", "The Kbans Website for your server (that sends the user to bans list page)", FCVAR_PROTECTED);
 
 	g_cvRedirectURL = CreateConVar("kban_discord_redirect", "https://nide.gg/connect/", "URL to your redirect.php file.");
-	g_cvChannelType = CreateConVar("kban_discord_channel_type", "0", "Type of your channel: (1 = Thread, 0 = Classic Text channel");
 
 	/* Thread config */
 	g_cvThreadName = CreateConVar("kban_discord_threadname", "KnockBackRestrict - Logs", "The Thread Name of your Discord forums. (If not empty, will create a new thread)", FCVAR_PROTECTED);
@@ -90,7 +88,6 @@ public void KR_OnClientKunbanned(int target, int admin, const char[] reason, int
 
 stock void SendKbDiscordMessage(int type, int admin, int target, int length, const char[] reason, int bansNumber, const char[] targetName = "")
 {
-	bool IsThread = g_cvChannelType.BoolValue;
 	char steamID[MAX_AUTHID_LENGTH], steamID64[MAX_AUTHID_LENGTH], sThreadID[32], avatar[PLATFORM_MAX_PATH]; 
 	char sThreadName[WEBHOOK_THREAD_NAME_MAX_SIZE], sWebhookURL[WEBHOOK_URL_MAX_SIZE], webredirectURL[PLATFORM_MAX_PATH];
 
@@ -110,7 +107,7 @@ stock void SendKbDiscordMessage(int type, int admin, int target, int length, con
 	}
 	
 	// Admin Information
-	if(!GetClientAuthId(admin, AuthId_Steam2, steamID, sizeof(steamID)))
+	if(!GetClientAuthId(admin, AuthId_Steam3, steamID, sizeof(steamID)))
 		return;
 	
 	if(!GetClientAuthId(admin, AuthId_SteamID64, steamID64, sizeof(steamID64)))
@@ -160,16 +157,17 @@ stock void SendKbDiscordMessage(int type, int admin, int target, int length, con
 	Embed1.AddField(field1);
 	
 	// Player Information
-	if(!GetClientAuthId(target, AuthId_Steam2, steamID, sizeof(steamID), false)) {
+	bool targetHasSteamID = GetClientAuthId(target, AuthId_Steam3, steamID, sizeof(steamID));
+	if(!targetHasSteamID) {
 		strcopy(steamID, sizeof(steamID), "No SteamID");
 	}
-	
+
 	if(!GetClientAuthId(target, AuthId_SteamID64, steamID64, sizeof(steamID64))) {
 		strcopy(steamID64, sizeof(steamID64), "No SteamID");
 	}
-	
+
 	char playerInfo[PLATFORM_MAX_PATH * 2];
-	if(StrContains(steamID, "STEAM_") != -1) {
+	if(targetHasSteamID) {
 		Format(playerInfo, sizeof(playerInfo), "`%N` ([%s](https://steamcommunity.com/profiles/%s))", target, steamID, steamID64);
 	} else {
 		Format(playerInfo, sizeof(playerInfo), "`%N` (No SteamID)", target);
@@ -221,11 +219,6 @@ stock void SendKbDiscordMessage(int type, int admin, int target, int length, con
 
 	DataPack pack = new DataPack();
 
-	if (IsThread && strlen(sThreadName) <= 0 && strlen(sThreadID) > 0)
-		pack.WriteCell(1);
-	else
-		pack.WriteCell(0);
-
 	pack.WriteCell(type);
 	pack.WriteCell(admin);
 	pack.WriteCell(target);
@@ -247,13 +240,12 @@ public void OnWebHookExecuted(HTTPResponse response, DataPack pack)
 	static int retries = 0;
 	pack.Reset();
 
-	bool IsThreadReply = pack.ReadCell();
 	int type = pack.ReadCell();
 	int adminID = pack.ReadCell();
 	int admin = GetClientOfUserId(adminID);
 	int targetID = pack.ReadCell();
 	int target = GetClientOfUserId(targetID);
-	int lenght = pack.ReadCell();
+	int length = pack.ReadCell();
 	pack.ReadString(reason, sizeof(reason));
 	int bansNumber = pack.ReadCell();
 	pack.ReadString(targetName, sizeof(targetName));
@@ -262,11 +254,11 @@ public void OnWebHookExecuted(HTTPResponse response, DataPack pack)
 
 	delete pack;
 	
-	if ((!IsThreadReply && response.Status != HTTPStatus_OK) || (IsThreadReply && response.Status != HTTPStatus_NoContent))
+	if (response.Status != HTTPStatus_OK && response.Status != HTTPStatus_NoContent)
 	{
 		if (retries < g_cvWebhookRetry.IntValue) {
 			PrintToServer("[%s] Failed to send the webhook. Resending it .. (%d/%d)", PLUGIN_NAME, retries, g_cvWebhookRetry.IntValue);
-			SendKbDiscordMessage(type, admin, target, lenght, reason, bansNumber, targetName);
+			SendKbDiscordMessage(type, admin, target, length, reason, bansNumber, targetName);
 			retries++;
 			return;
 		} else {

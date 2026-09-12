@@ -23,7 +23,7 @@ public Plugin myinfo =
 {
 	name 		= PLUGIN_NAME,
 	author 		= ".Rushaway, Dolly, koen",
-	version 	= "1.2.1",
+	version 	= "1.3.0",
 	description = "Send KbRestrict Ban/Unban notifications to discord",
 	url 		= "https://github.com/srcdslab/sm-plugin-KnockbackRestrict-discord"
 };
@@ -41,8 +41,8 @@ public void OnPluginStart()
 	g_cvRedirectURL = CreateConVar("kban_discord_redirect", "https://nide.gg/connect/", "URL to your redirect.php file.");
 
 	/* Thread config */
-	g_cvThreadName = CreateConVar("kban_discord_threadname", "KnockBackRestrict - Logs", "The Thread Name of your Discord forums. (If not empty, will create a new thread)", FCVAR_PROTECTED);
-	g_cvThreadID = CreateConVar("kban_discord_threadid", "0", "If thread_id is provided, the message will send in that thread.", FCVAR_PROTECTED);
+	g_cvThreadName = CreateConVar("kban_discord_threadname", "", "Forum channels only: if not empty, creates a NEW thread with this name on every notification. Leave empty when using kban_discord_threadid.", FCVAR_PROTECTED);
+	g_cvThreadID = CreateConVar("kban_discord_threadid", "0", "ID of an existing thread to post every notification into (ignored if kban_discord_threadname is set).", FCVAR_PROTECTED);
 	
 	AutoExecConfig(true);
 }
@@ -214,7 +214,9 @@ stock void SendKbDiscordMessage(int type, int admin, int target, int length, con
 		webhook.SetUsername(sName);
 	if (strlen(sAvatar) > 0)
 		webhook.SetAvatarURL(sAvatar);
-	
+	if (strlen(sThreadName) > 0)
+		webhook.SetThreadName(sThreadName);
+
 	webhook.AddEmbed(Embed1);
 
 	DataPack pack = new DataPack();

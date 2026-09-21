@@ -23,7 +23,7 @@ public Plugin myinfo =
 {
 	name 		= PLUGIN_NAME,
 	author 		= ".Rushaway, Dolly, koen",
-	version 	= "1.3.0",
+	version 	= "1.3.1",
 	description = "Send KbRestrict Ban/Unban notifications to discord",
 	url 		= "https://github.com/srcdslab/sm-plugin-KnockbackRestrict-discord"
 };
@@ -86,7 +86,7 @@ public void KR_OnClientKunbanned(int target, int admin, const char[] reason, int
     SendKbDiscordMessage(KUNBAN, admin, target, -1, reason, kbansNumber, _);
 }
 
-stock void SendKbDiscordMessage(int type, int admin, int target, int length, const char[] reason, int bansNumber, const char[] targetName = "")
+stock void SendKbDiscordMessage(int type, int admin, int target, int length, const char[] reason, int bansNumber, const char[] targetName = "", int retries = 0)
 {
 	char steamID[MAX_AUTHID_LENGTH], steamID64[MAX_AUTHID_LENGTH], sThreadID[32], avatar[PLATFORM_MAX_PATH]; 
 	char sThreadName[WEBHOOK_THREAD_NAME_MAX_SIZE], sWebhookURL[WEBHOOK_URL_MAX_SIZE], webredirectURL[PLATFORM_MAX_PATH];
@@ -230,6 +230,7 @@ stock void SendKbDiscordMessage(int type, int admin, int target, int length, con
 	pack.WriteString(targetName);
 	pack.WriteString(avatar);
 	pack.WriteString(sWebhookURL);
+	pack.WriteCell(retries);
 
 	webhook.Execute(sWebhookURL, OnWebHookExecuted, pack, sThreadID);
 	delete webhook;
@@ -239,7 +240,6 @@ stock void SendKbDiscordMessage(int type, int admin, int target, int length, con
 public void OnWebHookExecuted(HTTPResponse response, DataPack pack)
 {
 	char reason[256], targetName[MAX_NAME_LENGTH], avatar[PLATFORM_MAX_PATH], sWebhookURL[WEBHOOK_URL_MAX_SIZE];
-	static int retries = 0;
 	pack.Reset();
 
 	int type = pack.ReadCell();
@@ -253,15 +253,15 @@ public void OnWebHookExecuted(HTTPResponse response, DataPack pack)
 	pack.ReadString(targetName, sizeof(targetName));
 	pack.ReadString(avatar, sizeof(avatar));
 	pack.ReadString(sWebhookURL, sizeof(sWebhookURL));
+	int retries = pack.ReadCell();
 
 	delete pack;
-	
+
 	if (response.Status != HTTPStatus_OK && response.Status != HTTPStatus_NoContent)
 	{
 		if (retries < g_cvWebhookRetry.IntValue) {
 			PrintToServer("[%s] Failed to send the webhook. Resending it .. (%d/%d)", PLUGIN_NAME, retries, g_cvWebhookRetry.IntValue);
-			SendKbDiscordMessage(type, admin, target, length, reason, bansNumber, targetName);
-			retries++;
+			SendKbDiscordMessage(type, admin, target, length, reason, bansNumber, targetName, retries + 1);
 			return;
 		} else {
 			if (!g_Plugin_ExtDiscord)
@@ -272,8 +272,6 @@ public void OnWebHookExecuted(HTTPResponse response, DataPack pack)
 		#endif
 		}
 	}
-
-	retries = 0;
 }
 
 stock void GetTypeTitle(int type, char[] title, int maxlen) {

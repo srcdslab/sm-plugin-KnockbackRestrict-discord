@@ -23,7 +23,7 @@ public Plugin myinfo =
 {
 	name 		= PLUGIN_NAME,
 	author 		= ".Rushaway, Dolly, koen",
-	version 	= "1.3.1",
+	version 	= "1.3.2",
 	description = "Send KbRestrict Ban/Unban notifications to discord",
 	url 		= "https://github.com/srcdslab/sm-plugin-KnockbackRestrict-discord"
 };
@@ -107,6 +107,10 @@ stock void SendKbDiscordMessage(int type, int admin, int target, int length, con
 	}
 	
 	// Admin Information
+	// On a webhook retry the admin may have disconnected in the meantime.
+	if(admin < 1 || admin > MaxClients || !IsClientInGame(admin))
+		return;
+
 	if(!GetClientAuthId(admin, AuthId_Steam3, steamID, sizeof(steamID)))
 		return;
 	
@@ -222,8 +226,9 @@ stock void SendKbDiscordMessage(int type, int admin, int target, int length, con
 	DataPack pack = new DataPack();
 
 	pack.WriteCell(type);
-	pack.WriteCell(admin);
-	pack.WriteCell(target);
+	// OnWebHookExecuted resolves these with GetClientOfUserId, so store userids, not indexes.
+	pack.WriteCell(GetClientUserId(admin));
+	pack.WriteCell(invalidTarget ? 0 : GetClientUserId(target));
 	pack.WriteCell(length);
 	pack.WriteString(reason);
 	pack.WriteCell(bansNumber);

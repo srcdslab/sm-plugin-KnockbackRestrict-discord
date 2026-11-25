@@ -23,7 +23,7 @@ public Plugin myinfo =
 {
 	name 		= PLUGIN_NAME,
 	author 		= ".Rushaway, Dolly, koen",
-	version 	= "1.3.4",
+	version 	= "1.3.5",
 	description = "Send KbRestrict Ban/Unban notifications to discord",
 	url 		= "https://github.com/srcdslab/sm-plugin-KnockbackRestrict-discord"
 };
@@ -34,7 +34,8 @@ public void OnPluginStart()
 	g_cvEnable 	= CreateConVar("kban_discord_enable", "1", "Toggle Kban notification system", _, true, 0.0, true, 1.0);
 	g_cvWebhook = CreateConVar("kban_discord_webhook", "", "The webhook URL of your Discord channel.", FCVAR_PROTECTED);
 	g_cvWebhookRetry = CreateConVar("kban_discord_webhook_retry", "3", "Number of retries if webhook fails.", FCVAR_PROTECTED);
-	g_cvUsername = CreateConVar("kban_discord_discord_username", "Knockback Restrict Discord", "Discord username.");
+	// Discord rejects webhook usernames that contain "discord" (HTTP 400), see SanitizeUsername
+	g_cvUsername = CreateConVar("kban_discord_discord_username", "Knockback Restrict", "Webhook username (Discord rejects names containing \"discord\").");
 	g_cvAvatar = CreateConVar("kban_discord_avatar", "https://avatars.githubusercontent.com/u/110772618?s=200&v=4", "URL to Avatar image.");
 	g_cvWebSite	= CreateConVar("kban_website", "", "The Kbans Website for your server (that sends the user to bans list page)", FCVAR_PROTECTED);
 
@@ -214,6 +215,7 @@ stock void SendKbDiscordMessage(int type, int admin, int target, int length, con
 	
 	Webhook webhook = new Webhook("");
 
+	SanitizeUsername(sName, sizeof(sName));
 	if (strlen(sName) > 0)
 		webhook.SetUsername(sName);
 	if (strlen(sAvatar) > 0)
@@ -241,6 +243,24 @@ stock void SendKbDiscordMessage(int type, int admin, int target, int length, con
 	delete webhook;
 }
 
+// Discord answers HTTP 400 to a webhook username containing "discord" (any case), so every
+// message was dropped with the old default "Knockback Restrict Discord" (25/11/2026). Strip
+// the word and warn once instead of losing the notification.
+void SanitizeUsername(char[] sName, int iMaxLen)
+{
+	if (StrContains(sName, "discord", false) == -1)
+		return;
+
+	static bool bWarned = false;
+	if (!bWarned)
+	{
+		bWarned = true;
+		LogError("[%s] kban_discord_discord_username \"%s\" contains \"discord\", which Discord rejects: the word is removed.", PLUGIN_NAME, sName);
+	}
+
+	ReplaceString(sName, iMaxLen, "discord", "", false);
+	TrimString(sName);
+}
 
 public void OnWebHookExecuted(HTTPResponse response, DataPack pack)
 {
